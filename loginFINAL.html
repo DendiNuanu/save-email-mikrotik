@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="pragma" content="no-cache" />
+    <meta http-equiv="expires" content="-1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Internet hotspot - Log in</title>
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        /* Modal background */
+        #trialModal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 9999;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* Modal box */
+        #trialModal .modal-content {
+            background: #fff;
+            padding: 20px;
+            border-radius: 10px;
+            width: 300px;
+            text-align: center;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.3);
+        }
+
+        #trialModal input {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+
+        #trialModal button {
+            padding: 8px 15px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        #submitTrial {
+            background: #007bff;
+            color: white;
+        }
+
+        #closeModal {
+            background: #ccc;
+            margin-left: 5px;
+        }
+    </style>
+</head>
+
+<body>
+
+    $(if chap-id)
+    <form name="sendin" action="$(link-login-only)" method="post" style="display:none">
+        <input type="hidden" name="username" />
+        <input type="hidden" name="password" />
+        <input type="hidden" name="dst" value="$(link-orig)" />
+        <input type="hidden" name="popup" value="true" />
+    </form>
+
+    <script src="/md5.js"></script>
+    <script>
+        function doLogin() {
+            document.sendin.username.value = document.login.username.value;
+            document.sendin.password.value = hexMD5('$(chap-id)' + document.login.password.value + '$(chap-challenge)');
+            document.sendin.submit();
+            return false;
+        }
+    </script>
+    $(endif)
+
+    <div class="ie-fixMinHeight">
+        <div class="main">
+            <div class="wrap animated fadeIn">
+                <form name="login" action="$(link-login-only)" method="post" $(if chap-id) onSubmit="return doLogin()" $(endif)>
+                    <input type="hidden" name="dst" value="$(link-orig)" />
+                    <input type="hidden" name="popup" value="true" />
+
+                    <!-- Logo -->
+                    <svg class="logo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 174 42">
+                        <!-- Logo SVG Mikrotik asli -->
+                    </svg>
+
+                    <!-- Info dengan trial -->
+                    <p class="info $(if error)alert$(endif)">
+                        $(if error == "")Please log in to use the internet hotspot service
+                        $(if trial == 'yes')<br />Free trial available,
+                        <a href="#" id="openTrial">click here</a>.$(endif)
+                        $(endif)
+                        $(if error)$(error)$(endif)
+                    </p>
+
+                    <!-- Username -->
+                    <label>
+                        <img class="ico" src="img/user.svg" alt="#" />
+                        <input name="username" type="text" value="$(username)" placeholder="Username" />
+                    </label>
+
+                    <!-- Password -->
+                    <label>
+                        <img class="ico" src="img/password.svg" alt="#" />
+                        <input name="password" type="password" placeholder="Password" />
+                    </label>
+
+                    <!-- Submit -->
+                    <input type="submit" value="Connect" />
+                </form>
+
+                <p class="info bt">Powered by MikroTik RouterOS</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Email Trial -->
+    <div id="trialModal">
+        <div class="modal-content">
+            <h3>Enter your email address for a free trial</h3>
+            <input type="email" id="trialEmail" placeholder="Email Anda">
+            <div>
+                <button id="submitTrial">Get a Free Trial</button>
+                <button id="closeModal">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const modal = document.getElementById("trialModal");
+        const openTrial = document.getElementById("openTrial");
+        const closeModal = document.getElementById("closeModal");
+        const submitTrial = document.getElementById("submitTrial");
+
+        if (openTrial) {
+            openTrial.addEventListener("click", function (e) {
+                e.preventDefault();
+                modal.style.display = "flex";
+            });
+        }
+
+        closeModal.addEventListener("click", function () {
+            modal.style.display = "none";
+        });
+
+        submitTrial.addEventListener("click", function () {
+            const email = document.getElementById("trialEmail").value;
+            if (!email) {
+                alert("Email tidak boleh kosong");
+                return;
+            }
+
+            // URL trial dari Mikrotik
+            const trialURL = "$(link-login-only)?dst=$(link-orig-esc)&username=T-$(mac-esc)";
+
+            fetch("http://localhost:5000/save_trial_email", {
+                method: "POST",
+                headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                body: `email=${encodeURIComponent(email)}&trial_url=${encodeURIComponent(trialURL)}`
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.error) {
+                    alert("Gagal simpan: " + data.error);
+                } else {
+                    window.location.href = data.trial_url || trialURL;
+                }
+            })
+            .catch(err => {
+                alert("Error koneksi ke server Flask.");
+                console.error(err);
+            });
+        });
+    </script>
+
+</body>
+</html>
