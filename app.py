@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 # ===============================
 # Load environment variables
 # ===============================
-load_dotenv()  # Membaca file .env jika ada
+load_dotenv()  # Baca file .env kalau di lokal
 
 # ===============================
 # Flask App
@@ -120,5 +120,9 @@ def save_trial_email():
 if __name__ == "__main__":
     init_db()
     init_trial_table()
-    os.environ["FLASK_SKIP_DOTENV"] = "1"
-    app.run(debug=True)
+
+    # Gunakan PORT dari Railway / default 5000 di lokal
+    port = int(os.environ.get("PORT", 5000))
+    debug_mode = os.environ.get("FLASK_DEBUG", "False").lower() == "true"
+
+    app.run(host="0.0.0.0", port=port, debug=debug_mode)
