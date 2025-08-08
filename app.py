@@ -4,20 +4,13 @@ import psycopg2
 import os
 from dotenv import load_dotenv
 
-# ===============================
-# Load environment variables
-# ===============================
-load_dotenv()  # Baca file .env kalau di lokal
+# Load environment variables (.env di lokal, Railway pakai Variables)
+load_dotenv()
 
-# ===============================
-# Flask App
-# ===============================
 app = Flask(__name__)
 CORS(app)
 
-# ===============================
-# Database Config (ambil dari env)
-# ===============================
+# Konfigurasi Database dari Environment
 DB_CONFIG = {
     "host": os.getenv("DB_HOST"),
     "port": os.getenv("DB_PORT"),
@@ -27,15 +20,10 @@ DB_CONFIG = {
     "sslmode": os.getenv("DB_SSLMODE", "require")
 }
 
-# ===============================
-# Helper: Koneksi ke Database
-# ===============================
 def get_connection():
     return psycopg2.connect(**DB_CONFIG)
 
-# ===============================
-# Init Tabel hotspot_users
-# ===============================
+# Buat tabel hotspot_users
 def init_db():
     try:
         with get_connection() as conn:
@@ -52,9 +40,7 @@ def init_db():
     except Exception as e:
         print("❌ Gagal inisialisasi DB hotspot_users:", e)
 
-# ===============================
-# Init Tabel trial_users
-# ===============================
+# Buat tabel trial_users
 def init_trial_table():
     try:
         with get_connection() as conn:
@@ -70,9 +56,7 @@ def init_trial_table():
     except Exception as e:
         print("❌ Gagal inisialisasi DB trial_users:", e)
 
-# ===============================
-# API: Simpan login user
-# ===============================
+# API untuk simpan login user
 @app.route("/save_login", methods=["POST"])
 def save_login():
     username = request.form.get("username")
@@ -92,9 +76,7 @@ def save_login():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-# ===============================
-# API: Simpan email trial
-# ===============================
+# API untuk simpan email trial
 @app.route("/save_trial_email", methods=["POST"])
 def save_trial_email():
     email = request.form.get("email")
@@ -114,14 +96,11 @@ def save_trial_email():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-# ===============================
-# Main Run
-# ===============================
 if __name__ == "__main__":
     init_db()
     init_trial_table()
 
-    # Gunakan PORT dari Railway / default 5000 di lokal
+    # Railway pakai port dari environment
     port = int(os.environ.get("PORT", 5000))
     debug_mode = os.environ.get("FLASK_DEBUG", "False").lower() == "true"
 
