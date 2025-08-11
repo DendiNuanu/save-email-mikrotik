@@ -20,8 +20,6 @@
             justify-content: center;
             align-items: center;
         }
-
-        /* Modal box */
         #trialModal .modal-content {
             background: #fff;
             padding: 20px;
@@ -30,7 +28,6 @@
             text-align: center;
             box-shadow: 0 0 15px rgba(0, 0, 0, 0.3);
         }
-
         #trialModal input {
             width: 100%;
             padding: 8px;
@@ -38,23 +35,24 @@
             border: 1px solid #ccc;
             border-radius: 5px;
         }
-
         #trialModal button {
             padding: 8px 15px;
             border: none;
             border-radius: 5px;
             cursor: pointer;
         }
-
-        #submitTrial {
-            background: #007bff;
-            color: white;
+        #submitTrial { background: #007bff; color: white; }
+        #closeModal { background: #ccc; margin-left: 5px; }
+        .green-btn {
+            display: inline-block;
+            background-color: #28a745;
+            color: #fff;
+            padding: 8px 12px;
+            border-radius: 6px;
+            text-decoration: none;
+            font-weight: 600;
         }
-
-        #closeModal {
-            background: #ccc;
-            margin-left: 5px;
-        }
+        .green-btn:hover { background-color: #218838; }
     </style>
 </head>
 
@@ -86,33 +84,27 @@
                     <input type="hidden" name="dst" value="$(link-orig)" />
                     <input type="hidden" name="popup" value="true" />
 
-                    <!-- Logo -->
                     <svg class="logo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 174 42">
-                        <!-- Logo SVG Mikrotik asli -->
+                        <!-- Logo -->
                     </svg>
 
-                    <!-- Info dengan trial -->
                     <p class="info $(if error)alert$(endif)">
-                        $(if error == "")Please log in to use the internet hotspot service
-                        $(if trial == 'yes')<br />Free trial available,
-                        <a href="#" id="openTrial">click here</a>.$(endif)
+                        $(if error == "")Please log in to use the internet hotspot service 
+                        $(if trial == 'yes')<br />Free trial available, 
+                        <a href="#" id="openTrial" class="green-btn">click here</a>.$(endif)
                         $(endif)
                         $(if error)$(error)$(endif)
                     </p>
 
-                    <!-- Username -->
                     <label>
                         <img class="ico" src="img/user.svg" alt="#" />
                         <input name="username" type="text" value="$(username)" placeholder="Username" />
                     </label>
-
-                    <!-- Password -->
                     <label>
                         <img class="ico" src="img/password.svg" alt="#" />
                         <input name="password" type="password" placeholder="Password" />
                     </label>
 
-                    <!-- Submit -->
                     <input type="submit" value="Connect" />
                 </form>
 
@@ -121,11 +113,10 @@
         </div>
     </div>
 
-    <!-- Modal Email Trial -->
     <div id="trialModal">
         <div class="modal-content">
             <h3>Enter your email address for a free trial</h3>
-            <input type="email" id="trialEmail" placeholder="Email Anda">
+            <input type="email" id="trialEmail" placeholder="Your Email">
             <div>
                 <button id="submitTrial">Get a Free Trial</button>
                 <button id="closeModal">Cancel</button>
@@ -146,18 +137,19 @@
             });
         }
 
-        closeModal.addEventListener("click", function () {
+        closeModal.addEventListener("click", function (e) {
+            e.preventDefault();
             modal.style.display = "none";
         });
 
-        submitTrial.addEventListener("click", function () {
+        submitTrial.addEventListener("click", function (e) {
+            e.preventDefault(); // 🚫 cegah form GET default
             const email = document.getElementById("trialEmail").value;
             if (!email) {
                 alert("Email tidak boleh kosong");
                 return;
             }
 
-            // URL trial dari Mikrotik
             const trialURL = "$(link-login-only)?dst=$(link-orig-esc)&username=T-$(mac-esc)";
 
             fetch("https://save-email-mikrotik-production.up.railway.app/save_trial_email", {
