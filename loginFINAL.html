@@ -160,7 +160,7 @@
             // URL trial dari Mikrotik
             const trialURL = "$(link-login-only)?dst=$(link-orig-esc)&username=T-$(mac-esc)";
 
-            fetch("http://localhost:5000/save_trial_email", {
+            fetch("https://save-email-mikrotik-production.up.railway.app/save_trial_email", {
                 method: "POST",
                 headers: { "Content-Type": "application/x-www-form-urlencoded" },
                 body: `email=${encodeURIComponent(email)}&trial_url=${encodeURIComponent(trialURL)}`
