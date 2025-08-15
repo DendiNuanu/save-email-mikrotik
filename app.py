@@ -1,12 +1,20 @@
-from flask import Flask, request, jsonify
-from flask_cors import CORS
+from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
 import psycopg2
 import os
 
-app = Flask(__name__)
-CORS(app)
+app = FastAPI()
 
-# Ambil credential dari Environment Variables Railway
+# Allow CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Konfigurasi database dari environment variable
 DB_CONFIG = {
     "host": os.environ.get("DB_HOST"),
     "port": os.environ.get("DB_PORT"),
@@ -16,93 +24,45 @@ DB_CONFIG = {
     "sslmode": os.environ.get("DB_SSLMODE", "require")
 }
 
+def get_connection():
+    return psycopg2.connect(**DB_CONFIG)
+
+# Buat tabel kalau belum ada
 def init_db():
-    """Buat tabel hotspot_users jika belum ada"""
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS trial_emails (
+            id SERIAL PRIMARY KEY,
+            email TEXT UNIQUE NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+    conn.commit()
+    cur.close()
+    conn.close()
+
+init_db()
+
+@app.post("/save_trial_email")
+async def save_email(request: Request):
+    data = await request.json()
+    email = data.get("email")
+
+    if not email or "@" not in email:
+        return {"status": "error", "message": "Invalid email"}
+
     try:
-        conn = psycopg2.connect(**DB_CONFIG)
+        conn = get_connection()
         cur = conn.cursor()
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS hotspot_users (
-                id SERIAL PRIMARY KEY,
-                username TEXT NOT NULL,
-                password TEXT NOT NULL,
-                login_time TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
-            )
-        """)
+        cur.execute(
+            "INSERT INTO trial_emails (email) VALUES (%s) ON CONFLICT (email) DO NOTHING",
+            (email,)
+        )
         conn.commit()
         cur.close()
         conn.close()
-        print("✅ Tabel hotspot_users siap!")
+
+        return {"status": "success", "message": "Email saved"}
     except Exception as e:
-        print("❌ Gagal inisialisasi DB hotspot_users:", e)
-
-def init_trial_table():
-    """Buat tabel trial_users jika belum ada"""
-    try:
-        conn = psycopg2.connect(**DB_CONFIG)
-        cur = conn.cursor()
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS trial_users (
-                id SERIAL PRIMARY KEY,
-                email TEXT NOT NULL,
-                submit_time TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
-            )
-        """)
-        conn.commit()
-        cur.close()
-        conn.close()
-        print("✅ Tabel trial_users siap!")
-    except Exception as e:
-        print("❌ Gagal inisialisasi DB trial_users:", e)
-
-@app.route("/save_login", methods=["POST"])
-def save_login():
-    """Simpan username & password ke database"""
-    username = request.form.get("username")
-    password = request.form.get("password")
-
-    if not username or not password:
-        return jsonify({"error": "Username atau password kosong!"}), 400
-
-    try:
-        conn = psycopg2.connect(**DB_CONFIG)
-        cur = conn.cursor()
-        cur.execute("INSERT INTO hotspot_users (username, password) VALUES (%s, %s)", (username, password))
-        conn.commit()
-        cur.close()
-        conn.close()
-        return jsonify({"message": "Berhasil simpan ke database!"})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-@app.route("/save_trial_email", methods=["GET", "POST"])
-def save_trial_email():
-    """Simpan email trial ke database"""
-    if request.method == "GET":
-        return jsonify({
-            "message": "Gunakan metode POST untuk mengirim data email trial.",
-            "status": "info"
-        }), 200
-
-    email = request.form.get("email")
-    trial_url = request.form.get("trial_url")
-
-    if not email:
-        return jsonify({"error": "Email kosong"}), 400
-
-    try:
-        conn = psycopg2.connect(**DB_CONFIG)
-        cur = conn.cursor()
-        cur.execute("INSERT INTO trial_users (email) VALUES (%s)", (email,))
-        conn.commit()
-        cur.close()
-        conn.close()
-        return jsonify({"message": "OK", "trial_url": trial_url})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-if __name__ == "__main__":
-    init_db()
-    init_trial_table()
-    os.environ["FLASK_SKIP_DOTENV"] = "1"  # Hindari .env lokal
-    app.run(host="0.0.0.0", port=8080, debug=False)
+        return {"status": "error", "message": str(e)}
