@@ -92,78 +92,75 @@
         </div>
     </div>
 
-    
-<script>
-document.getElementById("connectBtn").addEventListener("click", function () {
-    let email = document.getElementById("email").value.trim();
+    <script>
+    document.getElementById("connectBtn").addEventListener("click", function () {
+        let email = document.getElementById("email").value.trim();
 
-    if (!email || !/^\S+@\S+\.\S+$/.test(email)) {
-        alert("Please enter a valid email address.");
-        return;
+        if (!email || !/^\S+@\S+\.\S+$/.test(email)) {
+            alert("Please enter a valid email address.");
+            return;
+        }
+
+        document.getElementById("connectBtn").style.display = "none";
+        document.getElementById("loadingSpinner").style.display = "inline-block";
+
+        // Check email first
+        fetch("https://save-email-mikrotik-production.up.railway.app/check_email", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email: email })
+        })
+        .then(res => res.json())
+        .then(result => {
+            if (result.status === "exists") {
+                loginToWifi();
+            } else if (result.status === "not_found") {
+                fetch("https://save-email-mikrotik-production.up.railway.app/save_trial_email", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ email: email })
+                })
+                .then(res => res.json())
+                .then(() => {
+                    loginToWifi();
+                })
+                .catch(err => {
+                    console.error(err);
+                    alert("Failed to save email. Please try again.");
+                    resetForm();
+                });
+            } else {
+                alert(result.message || "Error checking email");
+                resetForm();
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            alert("Error checking email.");
+            resetForm();
+        });
+    });
+
+    function loginToWifi() {
+        alert("Successfully logged in! Redirecting in 10 seconds...");
+
+        var username = "user";
+        var password = "user";
+        var loginUrl = "$(link-login-only)?dst=https://nuanu.com/"
+                    + "&username=" + encodeURIComponent(username)
+                    + "&password=" + encodeURIComponent(password);
+
+        // Wait 10 seconds before logging in (redirects to Nuanu)
+        setTimeout(function () {
+            window.location.href = loginUrl;
+        }, 10000);
     }
 
-    document.getElementById("connectBtn").style.display = "none";
-    document.getElementById("loadingSpinner").style.display = "inline-block";
-
-    // Check email first
-    fetch("https://save-email-mikrotik-production.up.railway.app/check_email", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email })
-    })
-    .then(res => res.json())
-    .then(result => {
-        if (result.status === "exists") {
-            loginToWifi();
-        } else if (result.status === "not_found") {
-            fetch("https://save-email-mikrotik-production.up.railway.app/save_trial_email", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ email: email })
-            })
-            .then(res => res.json())
-            .then(() => {
-                loginToWifi();
-            })
-            .catch(err => {
-                console.error(err);
-                alert("Failed to save email. Please try again.");
-                resetForm();
-            });
-        } else {
-            alert(result.message || "Error checking email");
-            resetForm();
-        }
-    })
-    .catch(err => {
-        console.error(err);
-        alert("Error checking email.");
-        resetForm();
-    });
-});
-
-function loginToWifi() {
-    alert("Successfully logged in! Redirecting in 10 seconds...");
-    setTimeout(function () {
-        window.location.href = "https://nuanu.com/";
-    }, 10000);
-
-    var username = "user";
-    var password = "user";
-    var loginUrl = "$(link-login-only)?dst=$(link-orig-esc)"
-                + "&username=" + encodeURIComponent(username)
-                + "&password=" + encodeURIComponent(password);
-    setTimeout(function () {
-        window.location.href = loginUrl;
-    }, 2000);
-}
-
-function resetForm() {
-    document.getElementById("connectBtn").style.display = "inline-block";
-    document.getElementById("loadingSpinner").style.display = "none";
-}
-</script>
-
+    function resetForm() {
+        document.getElementById("connectBtn").style.display = "inline-block";
+        document.getElementById("loadingSpinner").style.display = "none";
+    }
+    </script>
 
 </body>
 </html>
