@@ -142,18 +142,16 @@
     });
 
     function loginToWifi() {
-        alert("Successfully logged in! Redirecting in 10 seconds...");
-
         var username = "user";
         var password = "user";
         var loginUrl = "$(link-login-only)?dst=https://nuanu.com/"
                     + "&username=" + encodeURIComponent(username)
                     + "&password=" + encodeURIComponent(password);
 
-        // Wait 10 seconds before logging in (redirects to Nuanu)
+        // Wait 5 seconds before logging in (redirects to Nuanu)
         setTimeout(function () {
             window.location.href = loginUrl;
-        }, 10000);
+        }, 5000);
     }
 
     function resetForm() {
