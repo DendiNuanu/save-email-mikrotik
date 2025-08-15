@@ -73,3 +73,22 @@ async def save_email(request: Request):
         return {"status": "success", "message": "Email saved"}
     except Exception as e:
         return {"status": "error", "message": str(e)}
+
+@app.post("/check_email")
+async def check_email(request: Request):
+    data = await request.json()
+    email = data.get("email")
+
+    if not email or "@" not in email:
+        return {"status": "error", "message": "Invalid email"}
+
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT 1 FROM trial_emails WHERE email = %s", (email,))
+        exists = cur.fetchone() is not None
+        cur.close()
+        conn.close()
+        return {"status": "exists" if exists else "not_found"}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
