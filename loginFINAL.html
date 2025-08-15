@@ -1,173 +1,136 @@
 <!doctype html>
 <html lang="en">
-
 <head>
     <meta charset="utf-8">
     <meta http-equiv="pragma" content="no-cache" />
     <meta http-equiv="expires" content="-1" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Internet hotspot - Log in</title>
-    <link rel="stylesheet" href="css/style.css">
+    <title>Free WiFi - Connect</title>
     <style>
-        /* Modal background */
-        #trialModal {
-            display: none;
-            position: fixed;
-            top: 0; left: 0;
-            width: 100%; height: 100%;
-            background: rgba(0, 0, 0, 0.5);
-            z-index: 9999;
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            height: 100vh;
+            display: flex;
             justify-content: center;
             align-items: center;
+            background: url("https://images.lifestyleasia.com/wp-content/uploads/sites/7/2024/10/21143213/Untitled-design-69-1600x900.png") no-repeat center center;
+            background-size: cover;
+            position: relative;
         }
-        #trialModal .modal-content {
-            background: #fff;
+        body::before {
+            content: "";
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0,0,0,0.45);
+            z-index: 0;
+        }
+        .container {
+            position: relative;
+            z-index: 1;
+            text-align: center;
+            color: white;
+            background: rgba(0,0,0,0.5);
             padding: 20px;
             border-radius: 10px;
-            width: 300px;
-            text-align: center;
-            box-shadow: 0 0 15px rgba(0, 0, 0, 0.3);
         }
-        #trialModal input {
-            width: 100%;
-            padding: 8px;
-            margin-bottom: 10px;
-            border: 1px solid #ccc;
-            border-radius: 5px;
+        h1 {
+            font-size: 2rem;
+            margin-bottom: 20px;
         }
-        #trialModal button {
-            padding: 8px 15px;
+        input {
+            padding: 12px;
             border: none;
-            border-radius: 5px;
-            cursor: pointer;
-        }
-        #submitTrial { background: #007bff; color: white; }
-        #closeModal { background: #ccc; margin-left: 5px; }
-        .green-btn {
-            display: inline-block;
-            background-color: #28a745;
-            color: #fff;
-            padding: 8px 12px;
             border-radius: 6px;
-            text-decoration: none;
-            font-weight: 600;
+            margin-bottom: 15px;
+            width: 250px;
+            font-size: 1rem;
         }
-        .green-btn:hover { background-color: #218838; }
+        .green-btn {
+            background-color: #28a745;
+            color: white;
+            padding: 14px 28px;
+            font-size: 1.2rem;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.3s ease;
+        }
+        .green-btn:hover {
+            background-color: #218838;
+        }
+        .spinner {
+            display: none;
+            margin-top: 20px;
+        }
+        .spinner div {
+            width: 18px;
+            height: 18px;
+            background-color: white;
+            border-radius: 100%;
+            display: inline-block;
+            animation: bounce 1.4s infinite ease-in-out both;
+        }
+        .spinner div:nth-child(1) { animation-delay: -0.32s; }
+        .spinner div:nth-child(2) { animation-delay: -0.16s; }
+        @keyframes bounce {
+            0%, 80%, 100% { transform: scale(0); }
+            40% { transform: scale(1); }
+        }
     </style>
 </head>
-
 <body>
 
-    $(if chap-id)
-    <form name="sendin" action="$(link-login-only)" method="post" style="display:none">
-        <input type="hidden" name="username" />
-        <input type="hidden" name="password" />
-        <input type="hidden" name="dst" value="$(link-orig)" />
-        <input type="hidden" name="popup" value="true" />
-    </form>
-
-    <script src="/md5.js"></script>
-    <script>
-        function doLogin() {
-            document.sendin.username.value = document.login.username.value;
-            document.sendin.password.value = hexMD5('$(chap-id)' + document.login.password.value + '$(chap-challenge)');
-            document.sendin.submit();
-            return false;
-        }
-    </script>
-    $(endif)
-
-    <div class="ie-fixMinHeight">
-        <div class="main">
-            <div class="wrap animated fadeIn">
-                <form name="login" action="$(link-login-only)" method="post" $(if chap-id) onSubmit="return doLogin()" $(endif)>
-                    <input type="hidden" name="dst" value="$(link-orig)" />
-                    <input type="hidden" name="popup" value="true" />
-
-                    <svg class="logo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 174 42">
-                        <!-- Logo -->
-                    </svg>
-
-                    <p class="info $(if error)alert$(endif)">
-                        $(if error == "")Please log in to use the internet hotspot service 
-                        $(if trial == 'yes')<br />Free trial available, 
-                        <a href="#" id="openTrial" class="green-btn">click here</a>.$(endif)
-                        $(endif)
-                        $(if error)$(error)$(endif)
-                    </p>
-
-                    <label>
-                        <img class="ico" src="img/user.svg" alt="#" />
-                        <input name="username" type="text" value="$(username)" placeholder="Username" />
-                    </label>
-                    <label>
-                        <img class="ico" src="img/password.svg" alt="#" />
-                        <input name="password" type="password" placeholder="Password" />
-                    </label>
-
-                    <input type="submit" value="Connect" />
-                </form>
-
-                <p class="info bt">Powered by MikroTik RouterOS</p>
-            </div>
-        </div>
-    </div>
-
-    <div id="trialModal">
-        <div class="modal-content">
-            <h3>Enter your email address for a free trial</h3>
-            <input type="email" id="trialEmail" placeholder="Your Email">
-            <div>
-                <button id="submitTrial">Get a Free Trial</button>
-                <button id="closeModal">Cancel</button>
-            </div>
+    <div class="container">
+        <h1>Welcome to Free WiFi</h1>
+        <input type="email" id="email" placeholder="Enter your email" required>
+        <br>
+        <button id="connectBtn" class="green-btn">Connect</button>
+        <div class="spinner" id="loadingSpinner">
+            <div></div><div></div><div></div>
         </div>
     </div>
 
     <script>
-        const modal = document.getElementById("trialModal");
-        const openTrial = document.getElementById("openTrial");
-        const closeModal = document.getElementById("closeModal");
-        const submitTrial = document.getElementById("submitTrial");
+        document.getElementById("connectBtn").addEventListener("click", function () {
+            let email = document.getElementById("email").value.trim();
 
-        if (openTrial) {
-            openTrial.addEventListener("click", function (e) {
-                e.preventDefault();
-                modal.style.display = "flex";
-            });
-        }
-
-        closeModal.addEventListener("click", function (e) {
-            e.preventDefault();
-            modal.style.display = "none";
-        });
-
-        submitTrial.addEventListener("click", function (e) {
-            e.preventDefault(); // 🚫 cegah form GET default
-            const email = document.getElementById("trialEmail").value;
-            if (!email) {
-                alert("Email tidak boleh kosong");
+            if (!email || !/^\S+@\S+\.\S+$/.test(email)) {
+                alert("Please enter a valid email address.");
                 return;
             }
 
-            const trialURL = "$(link-login-only)?dst=$(link-orig-esc)&username=T-$(mac-esc)";
+            document.getElementById("connectBtn").style.display = "none";
+            document.getElementById("loadingSpinner").style.display = "inline-block";
 
+            // Kirim email ke API
             fetch("https://save-email-mikrotik-production.up.railway.app/save_trial_email", {
                 method: "POST",
-                headers: { "Content-Type": "application/x-www-form-urlencoded" },
-                body: `email=${encodeURIComponent(email)}&trial_url=${encodeURIComponent(trialURL)}`
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email: email })
             })
             .then(res => res.json())
             .then(data => {
-                if (data.error) {
-                    alert("Gagal simpan: " + data.error);
-                } else {
-                    window.location.href = data.trial_url || trialURL;
-                }
+                console.log("Email saved:", data);
+
+                // Username & password dummy (Hotspot auto-login)
+                var username = "user";
+                var password = "user";
+
+                var loginUrl = "$(link-login-only)?dst=$(link-orig-esc)"
+                            + "&username=" + encodeURIComponent(username)
+                            + "&password=" + encodeURIComponent(password);
+
+                setTimeout(function () {
+                    window.location.href = loginUrl;
+                }, 1000);
             })
             .catch(err => {
-                alert("Error koneksi ke server Flask.");
-                console.error(err);
+                console.error("Error saving email:", err);
+                alert("Failed to save email. Please try again.");
+                document.getElementById("connectBtn").style.display = "inline-block";
+                document.getElementById("loadingSpinner").style.display = "none";
             });
         });
     </script>
