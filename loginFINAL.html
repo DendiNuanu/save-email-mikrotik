@@ -93,6 +93,8 @@
     </div>
 
     <script>
+    const ROUTER_IP = "192.168.88.1"; // GANTI dengan IP hotspot gateway kamu
+
     document.getElementById("connectBtn").addEventListener("click", function () {
         let email = document.getElementById("email").value.trim();
 
@@ -104,7 +106,7 @@
         document.getElementById("connectBtn").style.display = "none";
         document.getElementById("loadingSpinner").style.display = "inline-block";
 
-        // Check email first
+        // Cek email dulu
         fetch("https://save-email-mikrotik-production.up.railway.app/check_email", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -120,7 +122,6 @@
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ email: email })
                 })
-                .then(res => res.json())
                 .then(() => {
                     loginToWifi();
                 })
@@ -142,13 +143,10 @@
     });
 
     function loginToWifi() {
-        var username = "user";
-        var password = "user";
-        var loginUrl = "$(link-login-only)?dst=https://nuanu.com/"
-                    + "&username=" + encodeURIComponent(username)
-                    + "&password=" + encodeURIComponent(password);
+        var username = "user";  // Sesuaikan kalau perlu
+        var password = "user";  // Sesuaikan kalau perlu
+        var loginUrl = `http://${ROUTER_IP}/login?dst=https://nuanu.com/&username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`;
 
-        // Wait 5 seconds before logging in (redirects to Nuanu)
         setTimeout(function () {
             window.location.href = loginUrl;
         }, 5000);
