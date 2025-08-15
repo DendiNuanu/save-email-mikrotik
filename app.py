@@ -2,10 +2,14 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 import psycopg2
 import os
+import uuid
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 
 app = FastAPI()
 
-# CORS setup
+# ==== CORS ====
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -14,7 +18,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Ambil konfigurasi dari environment
+# ==== Konfigurasi ====
 DB_CONFIG = {
     "host": os.getenv("DB_HOST"),
     "port": os.getenv("DB_PORT"),
@@ -24,10 +28,14 @@ DB_CONFIG = {
     "sslmode": os.getenv("DB_SSLMODE", "require")
 }
 
+SMTP_USER = os.getenv("SMTP_USER")  # Gmail
+SMTP_PASS = os.getenv("SMTP_PASS")  # App Password Gmail
+SMTP_SERVER = "smtp.gmail.com"
+SMTP_PORT = 587
+BASE_URL = os.getenv("BASE_URL", "https://save-email-mikrotik-production.up.railway.app")
 
 def get_connection():
     return psycopg2.connect(**DB_CONFIG)
-
 
 def init_db():
     try:
@@ -37,6 +45,8 @@ def init_db():
             CREATE TABLE IF NOT EXISTS trial_emails (
                 id SERIAL PRIMARY KEY,
                 email TEXT UNIQUE NOT NULL,
+                is_verified BOOLEAN DEFAULT FALSE,
+                verify_token TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
@@ -44,51 +54,105 @@ def init_db():
         cur.close()
         conn.close()
     except Exception as e:
-        print("Database initialization failed:", e)
-
+        print("DB init error:", e)
 
 @app.on_event("startup")
-def on_startup():
+def startup_event():
     init_db()
 
+# ==== Kirim Email Verifikasi ====
+def send_verification_email(email, token):
+    link = f"{BASE_URL}/verify?token={token}"
+    subject = "Verify your email to connect to Free WiFi"
+    body = f"""
+    Hello,
 
+    Please click the link below to verify your email and connect to Free WiFi:
+    {link}
+
+    If you didn't request this, please ignore this email.
+
+    Regards,
+    Free WiFi Admin
+    """
+    msg = MIMEMultipart()
+    msg["From"] = SMTP_USER
+    msg["To"] = email
+    msg["Subject"] = subject
+    msg.attach(MIMEText(body, "plain"))
+
+    with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
+        server.starttls()
+        server.login(SMTP_USER, SMTP_PASS)
+        server.sendmail(SMTP_USER, email, msg.as_string())
+
+# ==== Simpan Email Baru ====
 @app.post("/save_trial_email")
 async def save_email(request: Request):
     data = await request.json()
     email = data.get("email")
-
     if not email or "@" not in email:
         return {"status": "error", "message": "Invalid email"}
 
+    token = str(uuid.uuid4())
     try:
         conn = get_connection()
         cur = conn.cursor()
-        cur.execute(
-            "INSERT INTO trial_emails (email) VALUES (%s) ON CONFLICT (email) DO NOTHING",
-            (email,)
-        )
+        cur.execute("""
+            INSERT INTO trial_emails (email, verify_token)
+            VALUES (%s, %s)
+            ON CONFLICT (email) DO UPDATE SET verify_token = EXCLUDED.verify_token
+        """, (email, token))
         conn.commit()
         cur.close()
         conn.close()
-        return {"status": "success", "message": "Email saved"}
+
+        send_verification_email(email, token)
+        return {"status": "pending", "message": "Verification email sent"}
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
+# ==== Cek Email ====
 @app.post("/check_email")
 async def check_email(request: Request):
     data = await request.json()
     email = data.get("email")
-
     if not email or "@" not in email:
         return {"status": "error", "message": "Invalid email"}
 
     try:
         conn = get_connection()
         cur = conn.cursor()
-        cur.execute("SELECT 1 FROM trial_emails WHERE email = %s", (email,))
-        exists = cur.fetchone() is not None
+        cur.execute("SELECT is_verified FROM trial_emails WHERE email = %s", (email,))
+        row = cur.fetchone()
         cur.close()
         conn.close()
-        return {"status": "exists" if exists else "not_found"}
+
+        if row and row[0]:
+            return {"status": "exists"}
+        else:
+            return {"status": "not_verified"}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+# ==== Verifikasi Token ====
+@app.get("/verify")
+async def verify_email(token: str):
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute("""
+            UPDATE trial_emails SET is_verified = TRUE
+            WHERE verify_token = %s RETURNING email
+        """, (token,))
+        row = cur.fetchone()
+        conn.commit()
+        cur.close()
+        conn.close()
+
+        if row:
+            return {"status": "success", "message": "Email verified", "email": row[0]}
+        else:
+            return {"status": "error", "message": "Invalid token"}
     except Exception as e:
         return {"status": "error", "message": str(e)}
