@@ -5,7 +5,7 @@ import os
 
 app = FastAPI()
 
-# Allow CORS
+# Setup CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -14,7 +14,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Konfigurasi database dari environment variable
+# Database config from Railway ENV
 DB_CONFIG = {
     "host": os.environ.get("DB_HOST"),
     "port": os.environ.get("DB_PORT"),
@@ -27,32 +27,43 @@ DB_CONFIG = {
 def get_connection():
     return psycopg2.connect(**DB_CONFIG)
 
-# Buat tabel kalau belum ada
+# Inisialisasi database
 def init_db():
-    conn = get_connection()
-    cur = conn.cursor()
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS trial_emails (
-            id SERIAL PRIMARY KEY,
-            email TEXT UNIQUE NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    """)
-    conn.commit()
-    cur.close()
-    conn.close()
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS trial_emails (
+                id SERIAL PRIMARY KEY,
+                email TEXT UNIQUE NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        conn.commit()
+        cur.close()
+        conn.close()
+        print("✅ Database initialized successfully.")
+    except Exception as e:
+        print("❌ Database initialization failed:", e)
 
+# Jalankan saat startup
 init_db()
 
+# Handle OPTIONS (CORS preflight fix)
+@app.options("/save_trial_email")
+async def options_handler():
+    return {}
+
+# Endpoint untuk simpan email
 @app.post("/save_trial_email")
 async def save_email(request: Request):
-    data = await request.json()
-    email = data.get("email")
-
-    if not email or "@" not in email:
-        return {"status": "error", "message": "Invalid email"}
-
     try:
+        data = await request.json()
+        email = data.get("email")
+
+        if not email or "@" not in email:
+            return {"status": "error", "message": "Invalid email format"}
+
         conn = get_connection()
         cur = conn.cursor()
         cur.execute(
@@ -65,4 +76,5 @@ async def save_email(request: Request):
 
         return {"status": "success", "message": "Email saved"}
     except Exception as e:
+        print("❌ Error saving email:", e)
         return {"status": "error", "message": str(e)}
