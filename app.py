@@ -1,6 +1,8 @@
+
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse, JSONResponse
+from starlette.middleware.sessions import SessionMiddleware
 import psycopg2
 import os
 import uuid
@@ -11,6 +13,9 @@ from authlib.integrations.starlette_client import OAuth
 from starlette.requests import Request as StarletteRequest
 
 app = FastAPI()
+
+# ==== Session Middleware ====
+app.add_middleware(SessionMiddleware, secret_key=os.getenv("SECRET_KEY", "super-secret-key"))
 
 # ==== CORS ====
 app.add_middleware(
@@ -31,7 +36,7 @@ DB_CONFIG = {
     "sslmode": os.getenv("DB_SSLMODE", "require")
 }
 
-# ==== Email SMTP (untuk verifikasi manual) ====
+# ==== Email SMTP ====
 SMTP_USER = os.getenv("SMTP_USER")
 SMTP_PASS = os.getenv("SMTP_PASS")
 SMTP_SERVER = "smtp.gmail.com"
@@ -41,7 +46,7 @@ SMTP_PORT = 587
 BASE_URL = os.getenv("BASE_URL", "https://save-email-mikrotik-production.up.railway.app")
 
 # ==== Mikrotik Hotspot ====
-GATEWAY_IP = os.getenv("GATEWAY_IP", "172.19.20.1")  # IP hotspot Mikrotik
+GATEWAY_IP = os.getenv("GATEWAY_IP", "172.19.20.1")
 HOTSPOT_USER = os.getenv("HOTSPOT_USER", "user")
 HOTSPOT_PASS = os.getenv("HOTSPOT_PASS", "user")
 DST_URL = os.getenv("DST_URL", "https://nuanu.com/")
@@ -152,7 +157,7 @@ async def check_email(request: Request):
     else:
         return {"status": "not_verified"}
 
-# ==== Verifikasi Token & Auto Login ====
+# ==== Verifikasi Token ====
 @app.get("/verify")
 async def verify_email(token: str):
     conn = get_connection()
@@ -202,7 +207,6 @@ async def auth_google_callback(request: StarletteRequest):
     cur.close()
     conn.close()
 
-    # Auto-login Mikrotik
     login_url = (
         f"http://{GATEWAY_IP}/login?"
         f"username={HOTSPOT_USER}&password={HOTSPOT_PASS}&dst={DST_URL}"
