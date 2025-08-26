@@ -1,14 +1,9 @@
-
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse, JSONResponse
 from starlette.middleware.sessions import SessionMiddleware
 import psycopg2
 import os
-import uuid
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
 from authlib.integrations.starlette_client import OAuth
 from starlette.requests import Request as StarletteRequest
 
@@ -35,12 +30,6 @@ DB_CONFIG = {
     "password": os.getenv("DB_PASSWORD"),
     "sslmode": os.getenv("DB_SSLMODE", "require")
 }
-
-# ==== Email SMTP ====
-SMTP_USER = os.getenv("SMTP_USER")
-SMTP_PASS = os.getenv("SMTP_PASS")
-SMTP_SERVER = "smtp.gmail.com"
-SMTP_PORT = 587
 
 # ==== URL Aplikasi ====
 BASE_URL = os.getenv("BASE_URL", "https://save-email-mikrotik-production.up.railway.app")
@@ -75,8 +64,7 @@ def init_db():
         CREATE TABLE IF NOT EXISTS trial_emails (
             id SERIAL PRIMARY KEY,
             email TEXT UNIQUE NOT NULL,
-            is_verified BOOLEAN DEFAULT FALSE,
-            verify_token TEXT,
+            is_verified BOOLEAN DEFAULT TRUE,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
@@ -88,61 +76,33 @@ def init_db():
 def startup_event():
     init_db()
 
-# ==== Kirim Email Verifikasi ====
-def send_verification_email(email, token):
-    link = f"{BASE_URL.rstrip('/')}/verify?token={token}"
-    subject = "Verify your email to connect to Free WiFi"
-    body = f"""
-    Hello,
-
-    Please click the link below to verify your email and connect to Free WiFi:
-    {link}
-
-    If you didn't request this, please ignore this email.
-
-    Regards,
-    Free WiFi Admin
-    """
-    msg = MIMEMultipart()
-    msg["From"] = SMTP_USER
-    msg["To"] = email
-    msg["Subject"] = subject
-    msg.attach(MIMEText(body, "plain"))
-
-    with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
-        server.starttls()
-        server.login(SMTP_USER, SMTP_PASS)
-        server.sendmail(SMTP_USER, email, msg.as_string())
-
-# ==== Simpan Email Baru ====
+# ==== Simpan Email Baru (Auto-Verified) ====
 @app.post("/save_trial_email")
 async def save_email(request: Request):
     data = await request.json()
     email = data.get("email")
-    if not email or "@" not in email:
+    if not email:
         return {"status": "error", "message": "Invalid email"}
 
-    token = str(uuid.uuid4())
     conn = get_connection()
     cur = conn.cursor()
     cur.execute("""
-        INSERT INTO trial_emails (email, verify_token)
-        VALUES (%s, %s)
-        ON CONFLICT (email) DO UPDATE SET verify_token = EXCLUDED.verify_token
-    """, (email, token))
+        INSERT INTO trial_emails (email, is_verified)
+        VALUES (%s, TRUE)
+        ON CONFLICT (email) DO UPDATE SET is_verified = TRUE
+    """, (email,))
     conn.commit()
     cur.close()
     conn.close()
 
-    send_verification_email(email, token)
-    return {"status": "pending", "message": "Verification email sent"}
+    return {"status": "exists", "message": "Auto-verified"}
 
-# ==== Cek Email ====
+# ==== Cek Email (Always Verified if Saved) ====
 @app.post("/check_email")
 async def check_email(request: Request):
     data = await request.json()
     email = data.get("email")
-    if not email or "@" not in email:
+    if not email:
         return {"status": "error", "message": "Invalid email"}
 
     conn = get_connection()
@@ -156,29 +116,6 @@ async def check_email(request: Request):
         return {"status": "exists"}
     else:
         return {"status": "not_verified"}
-
-# ==== Verifikasi Token ====
-@app.get("/verify")
-async def verify_email(token: str):
-    conn = get_connection()
-    cur = conn.cursor()
-    cur.execute("""
-        UPDATE trial_emails SET is_verified = TRUE
-        WHERE verify_token = %s RETURNING email
-    """, (token,))
-    row = cur.fetchone()
-    conn.commit()
-    cur.close()
-    conn.close()
-
-    if row:
-        login_url = (
-            f"http://{GATEWAY_IP}/login?"
-            f"username={HOTSPOT_USER}&password={HOTSPOT_PASS}&dst={DST_URL}"
-        )
-        return RedirectResponse(url=login_url)
-    else:
-        return JSONResponse({"status": "error", "message": "Invalid token"})
 
 # ==== Google Login ====
 @app.get("/auth/google/login")
@@ -195,7 +132,7 @@ async def auth_google_callback(request: StarletteRequest):
 
     email = user_info["email"]
 
-    # Save or update in DB
+    # Save or update in DB as verified
     conn = get_connection()
     cur = conn.cursor()
     cur.execute("""
