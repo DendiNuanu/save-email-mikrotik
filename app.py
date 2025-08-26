@@ -227,22 +227,28 @@ async def show_dashboard():
           .logout:hover { background: #667eea; color: white; }
           .download { background: #10b981; color: white; }
           .download:hover { background: #059669; }
+          .buttons { text-align:center; margin-top: 20px; }
           @media(max-width: 600px) { table, th, td { font-size: 14px; } }
         </style>
       </head>
       <body>
         <h1>📊 Collected Emails</h1>
-        <div style="text-align:center;">
-            <a href="/dashboard/logout" class="logout">Logout</a>
-            <a href="/dashboard/download" class="download">Download CSV</a>
-        </div>
         <table>
           <tr><th>Email</th><th>Created At</th></tr>
     """
     for email, created_at in rows:
         html += f"<tr><td>{email}</td><td>{created_at.date()}</td></tr>"
 
-    html += "</table></body></html>"
+    # Buttons moved below the table
+    html += """
+        </table>
+        <div class="buttons">
+            <a href="/dashboard/logout" class="logout">Logout</a>
+            <a href="/dashboard/download" class="download">Download CSV</a>
+        </div>
+      </body>
+    </html>
+    """
     return HTMLResponse(content=html)
 
 # ==== Dashboard Logout ====
