@@ -32,6 +32,10 @@ DB_CONFIG = {
     "sslmode": os.getenv("DB_SSLMODE", "require")
 }
 
+# ==== Dashboard Password from Environment Variable ====
+DASHBOARD_PASSWORD = os.getenv("DASHBOARD_PASSWORD", "default-password")
+
+
 # ==== URL Aplikasi ====
 BASE_URL = os.getenv("BASE_URL", "https://save-email-mikrotik-production.up.railway.app")
 
@@ -304,38 +308,159 @@ async def auth_google_callback(request: StarletteRequest):
     )
     return RedirectResponse(url=login_url)
 
+# ==== Dashboard Login Page ====
 @app.get("/dashboard", response_class=HTMLResponse)
-async def dashboard():
+async def dashboard_login(request: Request):
+    if request.session.get("logged_in"):
+        return await show_dashboard()
+    
+    html = """
+    <html>
+      <head>
+        <title>Dashboard Login</title>
+        <style>
+          body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: #333;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+          }
+          .login-box {
+            background: white;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            text-align: center;
+            width: 300px;
+          }
+          input[type=password] {
+            width: 100%;
+            padding: 12px 10px;
+            margin: 15px 0;
+            border-radius: 6px;
+            border: 1px solid #ccc;
+            font-size: 16px;
+          }
+          button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+          }
+          button:hover {
+            background: #5a67d8;
+          }
+          h2 {
+            margin-bottom: 20px;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="login-box">
+          <h2>🔒 Dashboard Login</h2>
+          <form method="post" action="/dashboard">
+            <input type="password" name="password" placeholder="Enter password" required>
+            <button type="submit">Login</button>
+          </form>
+        </div>
+      </body>
+    </html>
+    """
+    return HTMLResponse(content=html)
+
+# ==== Handle Login Submission ====
+@app.post("/dashboard", response_class=HTMLResponse)
+async def dashboard_post(request: Request, password: str = Form(...)):
+    if password != DASHBOARD_PASSWORD:
+        return HTMLResponse(content="""
+            <html>
+              <body style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; text-align:center; padding-top:50px;">
+                <h2>❌ Invalid password</h2>
+                <a href="/dashboard">Try again</a>
+              </body>
+            </html>
+        """, status_code=401)
+    
+    # Password correct → set session
+    request.session["logged_in"] = True
+    return await show_dashboard()
+
+# ==== Show Dashboard ====
+async def show_dashboard():
     conn = get_connection()
     cur = conn.cursor()
-    # Fetch emails and timestamps
     cur.execute("SELECT email, created_at FROM trial_emails ORDER BY created_at DESC")
     rows = cur.fetchall()
     cur.close()
     conn.close()
 
-    # Build simple HTML
     html = """
     <html>
       <head>
         <title>Email Dashboard</title>
         <style>
-          body { font-family: Arial, sans-serif; background: #f9f9f9; padding: 20px; }
-          h1 { text-align: center; }
-          table { width: 100%; border-collapse: collapse; margin-top: 20px; background: white; }
-          th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
-          th { background: #667eea; color: white; }
-          tr:nth-child(even) { background: #f2f2f2; }
+          body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f3f4f6;
+            padding: 20px;
+          }
+          h1 {
+            text-align: center;
+            color: #333;
+          }
+          table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+          }
+          th, td {
+            padding: 12px 15px;
+            text-align: left;
+          }
+          th {
+            background: #667eea;
+            color: white;
+          }
+          tr:nth-child(even) {
+            background: #f2f2f2;
+          }
+          .logout {
+            display: block;
+            text-align: center;
+            margin: 20px;
+            text-decoration: none;
+            color: #667eea;
+            font-weight: bold;
+          }
+          .logout:hover {
+            color: #5a67d8;
+          }
+          @media(max-width: 600px) {
+            table, th, td {
+              font-size: 14px;
+            }
+          }
         </style>
       </head>
       <body>
         <h1>📊 Collected Emails</h1>
+        <a href="/dashboard/logout" class="logout">Logout</a>
         <table>
           <tr><th>Email</th><th>Created At</th></tr>
     """
-
     for email, created_at in rows:
-        date_only = created_at.date()  # <-- only date, no time
+        date_only = created_at.date()
         html += f"<tr><td>{email}</td><td>{date_only}</td></tr>"
 
     html += """
@@ -343,7 +468,10 @@ async def dashboard():
       </body>
     </html>
     """
-
     return HTMLResponse(content=html)
 
-
+# ==== Logout Route ====
+@app.get("/dashboard/logout")
+async def dashboard_logout(request: Request):
+    request.session.clear()
+    return RedirectResponse("/dashboard")
