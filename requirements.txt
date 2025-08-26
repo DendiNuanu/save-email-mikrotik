@@ -1,9 +1,10 @@
-Flask
+fastapi
+uvicorn
+starlette
+flask
 flask-cors
 psycopg2-binary
 python-dotenv
-fastapi
-uvicorn
 authlib==1.3.0
 httpx
-starlette
+python-multipart
