@@ -180,7 +180,9 @@ async def dashboard():
           <tr><th>Email</th><th>Created At</th></tr>
     """
     for email, created_at in rows:
-        html += f"<tr><td>{email}</td><td>{created_at}</td></tr>"
+    date_only = created_at.date()  # just get the date part
+    html += f"<tr><td>{email}</td><td>{date_only}</td></tr>"
+
 
     html += """
         </table>
