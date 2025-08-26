@@ -218,61 +218,59 @@ async def show_dashboard():
         <style>
           body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f3f4f6; padding: 20px; }
           h1 { text-align: center; color: #333; }
-          table { width: 100%; border-collapse: collapse; margin-top: 20px; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
+          table { width: 100%; border-collapse: collapse; margin: 20px auto; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
           th, td { padding: 12px 15px; text-align: left; }
           th { background: #667eea; color: white; }
           tr:nth-child(even) { background: #f2f2f2; }
-          .logout, .download { display: inline-block; margin: 10px; text-decoration: none; font-weight: bold; padding: 10px 15px; border-radius: 6px; }
-          .logout { color: #667eea; border: 1px solid #667eea; }
-          .logout:hover { background: #667eea; color: white; }
-          .download { background: #10b981; color: white; }
-          .download:hover { background: #059669; }
+
+          /* Button styles */
+          .button-container {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 30px;
+          }
+          .logout, .download {
+            text-decoration: none;
+            font-weight: bold;
+            padding: 10px 15px;
+            border-radius: 6px;
+            transition: all 0.2s ease;
+          }
+          .logout {
+            color: #667eea;
+            border: 1px solid #667eea;
+          }
+          .logout:hover {
+            background: #667eea;
+            color: white;
+          }
+          .download {
+            background: #10b981;
+            color: white;
+          }
+          .download:hover {
+            background: #059669;
+          }
           @media(max-width: 600px) { table, th, td { font-size: 14px; } }
         </style>
       </head>
       <body>
         <h1>📊 Collected Emails</h1>
-        <div style="text-align:center;">
-            <a href="/dashboard/logout" class="logout">Logout</a>
-            <a href="/dashboard/download" class="download">Download CSV</a>
-        </div>
         <table>
           <tr><th>Email</th><th>Created At</th></tr>
     """
     for email, created_at in rows:
         html += f"<tr><td>{email}</td><td>{created_at.date()}</td></tr>"
 
-    html += "</table></body></html>"
+    # Button section moved to bottom
+    html += """
+        </table>
+        <div class="button-container">
+            <a href="/dashboard/download" class="download">⬇ Download CSV</a>
+            <a href="/dashboard/logout" class="logout">🚪 Logout</a>
+        </div>
+      </body>
+    </html>
+    """
     return HTMLResponse(content=html)
-
-# ==== Dashboard Logout ====
-@app.get("/dashboard/logout")
-async def dashboard_logout(request: Request):
-    request.session.clear()
-    return RedirectResponse("/dashboard")
-
-# ==== Download CSV ====
-@app.get("/dashboard/download")
-async def download_csv(request: Request):
-    if not request.session.get("logged_in"):
-        return RedirectResponse("/dashboard")
-
-    conn = get_connection()
-    cur = conn.cursor()
-    cur.execute("SELECT email, created_at FROM trial_emails ORDER BY created_at DESC")
-    rows = cur.fetchall()
-    cur.close()
-    conn.close()
-
-    csv_file = StringIO()
-    writer = csv.writer(csv_file)
-    writer.writerow(["Email", "Created At"])
-    for email, created_at in rows:
-        writer.writerow([email, created_at.date()])
-
-    csv_file.seek(0)
-    return StreamingResponse(
-        csv_file,
-        media_type="text/csv",
-        headers={"Content-Disposition": "attachment; filename=emails.csv"}
-    )
