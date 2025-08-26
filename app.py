@@ -6,6 +6,7 @@ import psycopg2
 import os
 from authlib.integrations.starlette_client import OAuth
 from starlette.requests import Request as StarletteRequest
+from fastapi.responses import HTMLResponse
 
 app = FastAPI()
 
@@ -149,3 +150,42 @@ async def auth_google_callback(request: StarletteRequest):
         f"username={HOTSPOT_USER}&password={HOTSPOT_PASS}&dst={DST_URL}"
     )
     return RedirectResponse(url=login_url)
+
+@app.get("/dashboard", response_class=HTMLResponse)
+async def dashboard():
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT email, created_at FROM trial_emails ORDER BY created_at DESC")
+    rows = cur.fetchall()
+    cur.close()
+    conn.close()
+
+    # Build simple HTML
+    html = """
+    <html>
+      <head>
+        <title>Email Dashboard</title>
+        <style>
+          body { font-family: Arial, sans-serif; background: #f9f9f9; padding: 20px; }
+          h1 { text-align: center; }
+          table { width: 100%; border-collapse: collapse; margin-top: 20px; background: white; }
+          th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+          th { background: #667eea; color: white; }
+          tr:nth-child(even) { background: #f2f2f2; }
+        </style>
+      </head>
+      <body>
+        <h1>📊 Collected Emails</h1>
+        <table>
+          <tr><th>Email</th><th>Created At</th></tr>
+    """
+    for email, created_at in rows:
+        html += f"<tr><td>{email}</td><td>{created_at}</td></tr>"
+
+    html += """
+        </table>
+      </body>
+    </html>
+    """
+    return HTMLResponse(content=html)
+
