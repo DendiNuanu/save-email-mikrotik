@@ -243,8 +243,8 @@ async def show_dashboard():
     html += """
         </table>
         <div class="buttons">
+            <a href="/dashboard/download" class="download">Download as CSV</a><tr>
             <a href="/dashboard/logout" class="logout">Logout</a>
-            <a href="/dashboard/download" class="download">Download CSV</a>
         </div>
       </body>
     </html>
