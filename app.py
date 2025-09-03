@@ -159,7 +159,14 @@ async def auth_google_callback(request: StarletteRequest):
 @app.get("/dashboard", response_class=HTMLResponse)
 async def dashboard_login(request: Request):
     if request.session.get("logged_in"):
-        return await show_dashboard()
+        # Get page parameter from query string, default to 1
+        try:
+            page = int(request.query_params.get("page", 1))
+            if page < 1:
+                page = 1
+        except (ValueError, TypeError):
+            page = 1
+        return await show_dashboard(page=page)
 
     html = """
     <html>
@@ -200,50 +207,123 @@ async def dashboard_post(request: Request, password: str = Form(...)):
         return HTMLResponse(content="<h2>❌ Invalid password</h2><a href='/dashboard'>Try again</a>", status_code=401)
 
     request.session["logged_in"] = True
-    return await show_dashboard()
+    # Get page parameter from query string, default to 1
+    try:
+        page = int(request.query_params.get("page", 1))
+        if page < 1:
+            page = 1
+    except (ValueError, TypeError):
+        page = 1
+    return await show_dashboard(page=page)
 
 # ==== Show Dashboard ====
-async def show_dashboard():
+async def show_dashboard(page: int = 1, page_size: int = 20):
     conn = get_connection()
     cur = conn.cursor()
-    cur.execute("SELECT email, created_at FROM trial_emails ORDER BY created_at DESC")
+    
+    # Get total count for pagination
+    cur.execute("SELECT COUNT(*) FROM trial_emails")
+    total_count = cur.fetchone()[0]
+    
+    # Calculate offset
+    offset = (page - 1) * page_size
+    
+    # Get paginated results
+    cur.execute("""
+        SELECT email, created_at 
+        FROM trial_emails 
+        ORDER BY created_at DESC 
+        LIMIT %s OFFSET %s
+    """, (page_size, offset))
     rows = cur.fetchall()
     cur.close()
     conn.close()
 
-    html = """
+    # Calculate pagination info
+    total_pages = (total_count + page_size - 1) // page_size
+    has_prev = page > 1
+    has_next = page < total_pages
+
+    html = f"""
     <html>
       <head>
         <title>Email Dashboard</title>
         <style>
-          body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f3f4f6; padding: 20px; }
-          h1 { text-align: center; color: #333; }
-          table { width: 100%; border-collapse: collapse; margin-top: 20px; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
-          th, td { padding: 12px 15px; text-align: left; }
-          th { background: #667eea; color: white; }
-          tr:nth-child(even) { background: #f2f2f2; }
-          .logout, .download { display: inline-block; margin: 10px; text-decoration: none; font-weight: bold; padding: 10px 15px; border-radius: 6px; }
-          .logout { color: #667eea; border: 1px solid #667eea; }
-          .logout:hover { background: #667eea; color: white; }
-          .download { background: #10b981; color: white; }
-          .download:hover { background: #059669; }
-          .buttons { text-align:center; margin-top: 20px; }
-          @media(max-width: 600px) { table, th, td { font-size: 14px; } }
+          body {{ font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f3f4f6; padding: 20px; }}
+          h1 {{ text-align: center; color: #333; }}
+          .pagination-info {{ text-align: center; margin: 10px 0; color: #666; font-size: 14px; }}
+          table {{ width: 100%; border-collapse: collapse; margin-top: 20px; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }}
+          th, td {{ padding: 12px 15px; text-align: left; }}
+          th {{ background: #667eea; color: white; }}
+          tr:nth-child(even) {{ background: #f2f2f2; }}
+          .logout, .download {{ display: inline-block; margin: 10px; text-decoration: none; font-weight: bold; padding: 10px 15px; border-radius: 6px; }}
+          .logout {{ color: #667eea; border: 1px solid #667eea; }}
+          .logout:hover {{ background: #667eea; color: white; }}
+          .download {{ background: #10b981; color: white; }}
+          .download:hover {{ background: #059669; }}
+          .buttons {{ text-align:center; margin-top: 20px; }}
+          .pagination {{ text-align: center; margin: 20px 0; }}
+          .pagination a {{ display: inline-block; padding: 8px 12px; margin: 0 4px; text-decoration: none; border: 1px solid #667eea; border-radius: 4px; color: #667eea; }}
+          .pagination a:hover {{ background: #667eea; color: white; }}
+          .pagination .current {{ background: #667eea; color: white; }}
+          .pagination .disabled {{ color: #ccc; border-color: #ccc; cursor: not-allowed; }}
+          .pagination .disabled:hover {{ background: transparent; color: #ccc; }}
+          @media(max-width: 600px) {{ table, th, td {{ font-size: 14px; }} }}
         </style>
       </head>
       <body>
         <h1>📊 Collected Emails</h1>
+        <div class="pagination-info">
+          Showing {len(rows)} of {total_count} emails (Page {page} of {total_pages})
+        </div>
         <table>
           <tr><th>Email</th><th>Created At</th></tr>
     """
     for email, created_at in rows:
         html += f"<tr><td>{email}</td><td>{created_at.date()}</td></tr>"
 
-    # Buttons moved below the table
+    # Add pagination controls
     html += """
         </table>
+        <div class="pagination">
+    """
+    
+    # Previous button
+    if has_prev:
+        html += f'<a href="/dashboard?page={page-1}">« Previous</a>'
+    else:
+        html += '<span class="disabled">« Previous</span>'
+    
+    # Page numbers (show up to 5 pages around current page)
+    start_page = max(1, page - 2)
+    end_page = min(total_pages, page + 2)
+    
+    if start_page > 1:
+        html += f'<a href="/dashboard?page=1">1</a>'
+        if start_page > 2:
+            html += '<span>...</span>'
+    
+    for p in range(start_page, end_page + 1):
+        if p == page:
+            html += f'<span class="current">{p}</span>'
+        else:
+            html += f'<a href="/dashboard?page={p}">{p}</a>'
+    
+    if end_page < total_pages:
+        if end_page < total_pages - 1:
+            html += '<span>...</span>'
+        html += f'<a href="/dashboard?page={total_pages}">{total_pages}</a>'
+    
+    # Next button
+    if has_next:
+        html += f'<a href="/dashboard?page={page+1}">Next »</a>'
+    else:
+        html += '<span class="disabled">Next »</span>'
+    
+    html += """
+        </div>
         <div class="buttons">
-            <a href="/dashboard/download" class="download">Download as CSV</a><tr>
+            <a href="/dashboard/download" class="download">Download as CSV</a>
             <a href="/dashboard/logout" class="logout">Logout</a>
         </div>
       </body>
